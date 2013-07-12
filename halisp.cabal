@@ -15,6 +15,6 @@ build-type:          Simple
 cabal-version:       >=1.8
 
 executable halisp
-  -- main-is:             
+  main-is: Main.hs
   -- other-modules:       
   build-depends:       base ==4.6.*
