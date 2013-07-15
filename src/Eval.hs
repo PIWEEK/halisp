@@ -1,9 +1,9 @@
 import System.Environment (getArgs)
 
-import Parser (readExpr)
+import Parser (runExpr)
 
 
 main :: IO ()
 main = do
         args <- getArgs
-        print (readExpr (head args))
+        putStrLn (runExpr (head args))
