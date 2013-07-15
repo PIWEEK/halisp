@@ -18,11 +18,26 @@ data LispVal = Atom String
 parseString :: Parser LispVal
 parseString = do
                 strDelim
-                str <- many (noneOf "\"")
+                str <- many $ escapedChar <|> noneOf escapeCharOptions
                 strDelim
                 return $ String str
 
 strDelim = char '"'
+
+-- |A parser that is able to process escaped characters for a string, trimming
+-- the backslash used to escape it.
+escapedChar = do
+                char '\\'
+                x <- oneOf escapeCharOptions
+                return $ case x of
+                    'n' -> '\n'
+                    't' -> '\t'
+                    'r' -> '\r'
+                    _ -> x          -- '\\' and '"'
+
+-- |A string with the various characters used as escape codes.
+escapeCharOptions = "\\\"ntr"
+
 
 -- |The 'parseAtom' parses a Atom 'LispVal'. The '#t' and '#f' atoms are
 -- interpreted as the true and false boolean values. An atom can't start with a
@@ -71,7 +86,7 @@ spaces = skipMany1 space
 
 -- |The 'readExpr' function takes an input text and tries to parse it.
 readExpr :: String -> String
-readExpr input = case parse parseExpr "lisp" input of
+readExpr input = case parse parseString "lisp" input of
     Left err -> "No match: " ++ show err
     Right val -> "Found value"
 
