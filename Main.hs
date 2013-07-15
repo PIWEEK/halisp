@@ -41,12 +41,22 @@ parseAtom = do
 parseNumber :: Parser LispVal
 parseNumber = liftM (Number . read) $ many1 digit
 
+-- Exercise 1
+parseNumber' :: Parser LispVal
+parseNumber' = do
+                 ds <- many1 digit
+                 return $ Number (read ds)
+
+parseNumber'' :: Parser LispVal
+parseNumber'' = many1 digit >>= return . toNumber
+    where toNumber  = Number . read
+
 
 -- |The 'parseExpr' parses either a string, atom or number.
 parseExpr :: Parser LispVal
 parseExpr = parseAtom
         <|> parseString
-        <|> parseNumber
+        <|> parseNumber''
         <?> "Atom, string or number"
 
 -- |The 'symbol' function recognizes a symbol allowed in Scheme identifiers.
