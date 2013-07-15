@@ -11,7 +11,7 @@ import Core
 parseString :: Parser LispVal
 parseString = do
                 strDelim
-                str <- many $ escapedChar <|> noneOf escapeCharOptions
+                str <- many $ noneOf escapeCharOptions <|> escapedChar
                 strDelim
                 return $ String str
 
