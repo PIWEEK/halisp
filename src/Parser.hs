@@ -25,10 +25,11 @@ escapedChar = do
                 char '\\'
                 x <- oneOf escapeCharOptions
                 return $ case x of
+                    '\\' -> x
+                    '"'  -> x
                     'n' -> '\n'
                     't' -> '\t'
                     'r' -> '\r'
-                    _ -> x          -- '\\' and '"'
 
 
 -- |A string with the various characters used as escape codes.
@@ -69,7 +70,7 @@ parseNumber'' = many1 digit >>= return . toNumber
 parseExpr :: Parser LispVal
 parseExpr = parseAtom
         <|> parseString
-        <|> parseNumber''
+        <|> parseNumber
         <|> parseQuoted
         <|> parseParens
 
@@ -118,4 +119,4 @@ spaces = skipMany1 space
 readExpr :: String -> String
 readExpr input = case parse parseExpr "lisp" input of
     Left err -> "No match: " ++ show err
-    Right val -> "Found value: " ++ show val
+    Right val -> "Found " ++ show val

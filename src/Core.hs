@@ -8,4 +8,17 @@ data LispVal = Atom String
              | Number Integer
              | String String
              | Bool Bool
-             deriving (Show)
+
+
+instance Show LispVal where
+    show (Atom name) = name
+    show (List xs) = "(" ++ showLispValList xs ++ ")"
+    show (DottedList head tail) = "(" ++ showLispValList head ++ " . " ++ show tail ++ ")"
+    show (Number n) = show n
+    show (String s) = "\"" ++ s ++ "\""
+    show (Bool True) = "#t"
+    show (Bool False) = "#f"
+
+
+showLispValList :: [LispVal] -> String
+showLispValList = unwords . map show
