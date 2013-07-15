@@ -22,6 +22,22 @@ parseString = do
 
 strDelim = char '"'
 
+-- |The 'parseAtom' parses a Atom 'LispVal'. The '#t' and '#f' atoms are
+-- interpreted as the true and false boolean values. An atom can't start with a
+-- number, but it may contain them.
+parseAtom :: Parser LispVal
+parseAtom = do
+              first <- letter <|> symbol -- an atom can't start with a number
+              rest <- many (letter <|> digit <|> symbol)
+              let atom = first:rest
+              return $ case atom of
+                        trueAtom -> Bool True
+                        falseAtom -> Bool False
+                        _ -> Atom atom
+
+trueAtom = "#t"
+falseAtom = "#f"
+
 
 -- |The 'symbol' function recognizes a symbol allowed in Scheme identifiers.
 symbol :: Parser Char
