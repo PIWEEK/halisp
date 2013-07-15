@@ -43,9 +43,9 @@ escapedChar = do
 escapeCharOptions = "\\\"ntr"
 
 
--- |The 'parseAtom' parses a Atom 'LispVal'. The '#t' and '#f' atoms are
--- interpreted as the true and false boolean values. An atom can't start with a
--- number, but it may contain them.
+-- |The 'parseAtom' function parses a Atom 'LispVal'. The '#t' and '#f' atoms
+-- are interpreted as the true and false boolean values. An atom can't start
+-- with a number, but it may contain them.
 parseAtom :: Parser LispVal
 parseAtom = do
               first <- letter <|> symbol -- an atom can't start with a number
@@ -57,7 +57,7 @@ parseAtom = do
                         _ -> Atom atom
 
 
--- |The 'parseNumber' parses a Number 'LispVal'.
+-- |The 'parseNumber' function parses a Number 'LispVal'.
 parseNumber :: Parser LispVal
 parseNumber = liftM (Number . read) $ many1 digit
 
@@ -73,25 +73,42 @@ parseNumber'' = many1 digit >>= return . toNumber
     where toNumber  = Number . read
 
 
--- |The 'parseExpr' parses either a string, atom or number.
+-- |The 'parseExpr' function parses either a string, atom or number.
 parseExpr :: Parser LispVal
 parseExpr = parseAtom
         <|> parseString
         <|> parseNumber''
-        <?> "Atom, string or number"
+        <|> parseQuoted
+        <|> parseParens
 
 
--- |The 'parseList' parses a list of expressions.
+parseParens :: Parser LispVal
+parseParens = do
+                char '('
+                x <- try parseList <|> parseDottedList
+                char ')'
+                return x
+
+
+-- |The 'parseList' function parses a list of expressions.
 parseList :: Parser LispVal
 parseList = parseExpr `sepBy` spaces >>= return . List
 
 
--- |The 'parseList' parses a dotted list of expressions.
+-- |The 'parseList' function parses a dotted list of expressions.
 parseDottedList :: Parser LispVal
 parseDottedList = do
                     first <- parseExpr `endBy1` spaces
                     tail <- char '.' >> spaces >> parseExpr
                     return $ DottedList first tail
+
+
+-- |The 'parseQuoted' function parses a quoted expression.
+parseQuoted :: Parser LispVal
+parseQuoted = do
+                char '\''
+                x <- parseExpr
+                return $ List [Atom "quote", x]
 
 
 -- |The 'symbol' function recognizes a symbol allowed in Scheme identifiers.
@@ -107,7 +124,7 @@ spaces = skipMany1 space
 
 -- |The 'readExpr' function takes an input text and tries to parse it.
 readExpr :: String -> String
-readExpr input = case parse parseList "lisp" input of
+readExpr input = case parse parseExpr "lisp" input of
     Left err -> "No match: " ++ show err
     Right val -> "Found value: " ++ show val
 
