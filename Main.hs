@@ -1,5 +1,7 @@
 import System.Environment (getArgs)
 
+import Control.Monad (liftM)
+
 import Text.ParserCombinators.Parsec hiding (spaces)
 
 
@@ -31,13 +33,13 @@ parseAtom = do
               rest <- many (letter <|> digit <|> symbol)
               let atom = first:rest
               return $ case atom of
-                        trueAtom -> Bool True
-                        falseAtom -> Bool False
+                        "#t" -> Bool True
+                        "#f" -> Bool False
                         _ -> Atom atom
 
-trueAtom = "#t"
-falseAtom = "#f"
-
+-- |The 'parseNumber' parses a Number 'LispVal'.
+parseNumber :: Parser LispVal
+parseNumber = liftM (Number . read) $ many1 digit
 
 -- |The 'symbol' function recognizes a symbol allowed in Scheme identifiers.
 symbol :: Parser Char
@@ -51,7 +53,7 @@ spaces = skipMany1 space
 
 -- |The 'readExpr' function takes an input text and tries to parse it.
 readExpr :: String -> String
-readExpr input = case parse (spaces >> symbol) "lisp" input of
+readExpr input = case parse parseNumber "lisp" input of
     Left err -> "No match: " ++ show err
     Right val -> "Found value"
 
