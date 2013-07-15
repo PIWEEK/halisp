@@ -1,18 +1,10 @@
-import System.Environment (getArgs)
+module Parser where
 
 import Control.Monad (liftM)
 
 import Text.ParserCombinators.Parsec hiding (spaces)
 
-
--- |The different values that can appear in our Lisp programs.
-data LispVal = Atom String
-             | List [LispVal]
-             | DottedList [LispVal] LispVal -- represents the Scheme form (a b . c)
-             | Number Integer
-             | String String
-             | Bool Bool
-             deriving (Show)
+import Core
 
 
 -- |The 'parseString' parses a String 'LispVal'.
@@ -127,9 +119,3 @@ readExpr :: String -> String
 readExpr input = case parse parseExpr "lisp" input of
     Left err -> "No match: " ++ show err
     Right val -> "Found value: " ++ show val
-
-
-main :: IO ()
-main = do
-        args <- getArgs
-        putStrLn (readExpr (head args))
