@@ -32,3 +32,40 @@ eval val@(String _) = val
 eval val@(Number _) = val
 eval val@(Bool _) = val
 eval (List [Atom "quote", val]) = val
+eval (List (Atom func: args)) = apply func $ map eval args
+
+
+-- |The 'apply' function takes a string representing a function, a list of
+-- arguments and returns the value resulting from applying the function to the
+-- arguments.
+apply :: String -> [LispVal] -> LispVal
+apply func args = maybe (Bool False) ($ args) $ lookup func primitives
+
+
+primitives :: [(String, [LispVal] -> LispVal)]
+primitives = [("+", numericBinaryOp (+)),
+              ("-", numericBinaryOp (-)),
+              ("*", numericBinaryOp (*)),
+              ("/", numericBinaryOp div),
+              ("mod", numericBinaryOp mod),
+              ("quotient", numericBinaryOp quot),
+              ("remainder", numericBinaryOp rem)]
+
+
+-- TODO: more generic, works with any number!
+-- |The 'numericBinaryOp' takes a binary numeric function and applies it to a
+-- list of 'LispVal' instances returning a number 'LispVal'.
+numericBinaryOp :: (Integer -> Integer -> Integer) -> [LispVal] -> LispVal
+numericBinaryOp f args = Number $ foldl1 f $ map unpackNumber args
+
+
+-- TODO: more generic
+-- |The 'unpackNumber' takes a 'LispVal' and returns a numeric representation
+-- of it.
+unpackNumber :: LispVal -> Integer
+unpackNumber (Number n) = n
+unpackNumber (String n) = let parsed = reads n in
+                            if null parsed
+                                then 0
+                                else fst $ head parsed
+unpackNumber _ = 0
