@@ -41,6 +41,14 @@ parseAtom = do
 parseNumber :: Parser LispVal
 parseNumber = liftM (Number . read) $ many1 digit
 
+
+-- |The 'parseExpr' parses either a string, atom or number.
+parseExpr :: Parser LispVal
+parseExpr = parseAtom
+        <|> parseString
+        <|> parseNumber
+        <?> "Atom, string or number"
+
 -- |The 'symbol' function recognizes a symbol allowed in Scheme identifiers.
 symbol :: Parser Char
 symbol = oneOf "!#$%&|*+-/:<=>?@^_~"
@@ -53,7 +61,7 @@ spaces = skipMany1 space
 
 -- |The 'readExpr' function takes an input text and tries to parse it.
 readExpr :: String -> String
-readExpr input = case parse parseNumber "lisp" input of
+readExpr input = case parse parseExpr "lisp" input of
     Left err -> "No match: " ++ show err
     Right val -> "Found value"
 
