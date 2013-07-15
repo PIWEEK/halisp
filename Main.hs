@@ -86,6 +86,14 @@ parseList :: Parser LispVal
 parseList = parseExpr `sepBy` spaces >>= return . List
 
 
+-- |The 'parseList' parses a dotted list of expressions.
+parseDottedList :: Parser LispVal
+parseDottedList = do
+                    first <- parseExpr `endBy1` spaces
+                    tail <- char '.' >> spaces >> parseExpr
+                    return $ DottedList first tail
+
+
 -- |The 'symbol' function recognizes a symbol allowed in Scheme identifiers.
 symbol :: Parser Char
 symbol = oneOf "!#$%&|*+-/:<=>?@^_~"
