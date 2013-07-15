@@ -12,6 +12,17 @@ data LispVal = Atom String
              | Bool Bool
 
 
+-- |The 'parseString' parses a String 'LispVal'.
+parseString :: Parser LispVal
+parseString = do
+                strDelim
+                str <- many (noneOf "\"")
+                strDelim
+                return $ String str
+
+strDelim = char '"'
+
+
 -- |The 'symbol' function recognizes a symbol allowed in Scheme identifiers.
 symbol :: Parser Char
 symbol = oneOf "!#$%&|*+-/:<=>?@^_~"
