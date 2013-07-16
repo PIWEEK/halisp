@@ -96,13 +96,26 @@ primitives = [ -- Numeric
               ("quotient", numericBinaryOp quot),
               ("remainder", numericBinaryOp rem),
               ("number?", singleArg isNumber),
+              ("=", numericBooleanBinaryOp (==)),
+              ("<", numericBooleanBinaryOp (<)),
+              (">", numericBooleanBinaryOp (>)),
+              ("/=", numericBooleanBinaryOp (/=)),
+              (">=", numericBooleanBinaryOp (>=)),
+              ("<=", numericBooleanBinaryOp (<=)),
                -- Boolean
               ("not", singleArg negateLispVal),
               ("boolean?", singleArg isBoolean),
+              ("&&", booleanBinaryOp (&&)),
+              ("||", booleanBinaryOp (||)),
                -- Symbols
               ("symbol?", singleArg isSymbol),
                -- Strings
               ("string?", singleArg isString),
+              ("string=?", stringBinaryOp (==)),
+              ("string<?", stringBinaryOp (<)),
+              ("string>?", stringBinaryOp (>)),
+              ("string<=?", stringBinaryOp (<=)),
+              ("string>=?", stringBinaryOp (>=)),
                -- Lists
               ("list?", singleArg isList)]
 
@@ -121,6 +134,29 @@ numericBinaryOp f args = mapM unpackNumber args >>= return . Number . foldl1 f
 unpackNumber :: LispVal -> ThrowsError Integer
 unpackNumber (Number n) = return n
 unpackNumber notNum = throwError $ TypeMismatch "Number" notNum
+
+
+unpackBool :: LispVal -> ThrowsError Bool
+unpackBool (Bool v) = return v
+unpackBool notBool = throwError $ TypeMismatch "Boolean" notBool
+
+
+unpackString :: LispVal -> ThrowsError String
+unpackString (String v) = return v
+unpackString notString = throwError $ TypeMismatch "String" notString
+
+
+boolBinOp :: (LispVal -> ThrowsError a) -> (a -> a -> Bool) -> [LispVal] -> ThrowsError LispVal
+boolBinOp unpacker f args = if length args /= 2
+                            then throwError $ NumArgs "two" args
+                            else do left <- unpacker $ args !! 0
+                                    right <- unpacker $ args !! 1
+                                    return $ Bool $ f left right
+
+
+numericBooleanBinaryOp = boolBinOp unpackNumber
+booleanBinaryOp = boolBinOp unpackBool
+stringBinaryOp = boolBinOp unpackString
 
 
 singleArg :: (LispVal -> LispVal) -> [LispVal] -> ThrowsError LispVal
