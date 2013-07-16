@@ -1,6 +1,7 @@
 module Parser where
 
 import Control.Monad (liftM)
+import Control.Monad.Error (throwError)
 
 import Text.ParserCombinators.Parsec hiding (spaces)
 
@@ -118,14 +119,7 @@ spaces = skipMany1 space
 -- |The 'readExpr' function takes an input text and returns a 'LispVal'
 -- representation of the input. If it encounters an error, it will return a
 -- string 'LispVal' with an error message.
-readExpr :: String -> LispVal
+readExpr :: String -> ThrowsError LispVal
 readExpr input = case parse parseExpr "lisp" input of
-    Left err -> String $ "[ERROR]: " ++ show err
-    Right val -> val
-
-
--- |The 'runExpr' function takes a string and returns a string with the result
--- of applying 'eval' to it.
-runExpr :: String -> String
-runExpr val = "=> " ++  show reducedVal
-    where reducedVal = eval (readExpr val)
+    Left err -> throwError $ Parser err
+    Right val -> return val

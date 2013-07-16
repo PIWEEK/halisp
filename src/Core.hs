@@ -1,5 +1,7 @@
 module Core where
 
+import Text.ParserCombinators.Parsec.Error (ParseError)
+
 import Control.Monad.Error
 
 
@@ -12,10 +14,8 @@ data LispVal = Atom String
              | Bool Bool
 
 
-type ParseError = String
-
 -- |The different errors that can occur in our Lisp programs.
-data LispError = NumArgs Integer [LispVal]
+data LispError = NumArgs String [LispVal]
                | TypeMismatch String LispVal
                | Parser ParseError
                | BadSpecialForm String LispVal
@@ -52,25 +52,41 @@ instance Error LispError where
     strMsg = Default
 
 
+-- |A type for including the possibility of a 'LispError' in a computation.
+type ThrowsError = Either LispError
+
+-- |A function for capturing errors and always returning a 'Right' value as a
+-- string.
+trapError action = catchError action (return . show)
+
+
+-- |A function for extracting the 'Right' value from a 'ThrowsError'
+-- computation.
+extractValue :: ThrowsError a -> a
+extractValue (Right val) = val
+
+
 -- |The 'eval' function reduces an arbitrarily complex 'LispVal' to a basic
 -- 'LispVal'.
-eval :: LispVal -> LispVal
-eval val@(String _) = val
-eval val@(Number _) = val
-eval val@(Bool _) = val
-eval (List [Atom "quote", val]) = val
-eval (List (Atom func: args)) = apply func $ map eval args
-eval x = x
+eval :: LispVal -> ThrowsError LispVal
+eval val@(String _) = return val
+eval val@(Number _) = return val
+eval val@(Bool _) = return val
+eval (List [Atom "quote", val]) = return val
+eval (List (Atom func: args)) = mapM eval args >>= apply func
+eval badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
 
 -- |The 'apply' function takes a string representing a function, a list of
 -- arguments and returns the value resulting from applying the function to the
 -- arguments.
-apply :: String -> [LispVal] -> LispVal
-apply func args = maybe (String "[ERROR]") ($ args) $ lookup func primitives
+apply :: String -> [LispVal] -> ThrowsError LispVal
+apply func args = maybe (throwError $ NotFunction "Unrecognized primitive function" func)
+                        ($ args)
+                        (lookup func primitives)
 
 
-primitives :: [(String, [LispVal] -> LispVal)]
+primitives :: [(String, [LispVal] -> ThrowsError LispVal)]
 primitives = [ -- Numeric
               ("+", numericBinaryOp (+)),
               ("-", numericBinaryOp (-)),
@@ -94,20 +110,22 @@ primitives = [ -- Numeric
 -- TODO: more generic, works with any number!
 -- |The 'numericBinaryOp' takes a binary numeric function and applies it to a
 -- list of 'LispVal' instances returning a number 'LispVal'.
-numericBinaryOp :: (Integer -> Integer -> Integer) -> [LispVal] -> LispVal
-numericBinaryOp f args = Number $ foldl1 f $ map unpackNumber args
+numericBinaryOp :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
+numericBinaryOp f singleVal@[_]= throwError $ NumArgs "two or more" singleVal
+numericBinaryOp f args = mapM unpackNumber args >>= return . Number . foldl1 f
 
 
 -- TODO: more generic
 -- |The 'unpackNumber' takes a 'LispVal' and returns a numeric representation
 -- of it.
-unpackNumber :: LispVal -> Integer
-unpackNumber (Number n) = n
-unpackNumber _ = 0
+unpackNumber :: LispVal -> ThrowsError Integer
+unpackNumber (Number n) = return n
+unpackNumber notNum = throwError $ TypeMismatch "Number" notNum
 
 
-singleArg :: (LispVal -> LispVal) -> [LispVal] -> LispVal
-singleArg f (x:_) = f x
+singleArg :: (LispVal -> LispVal) -> [LispVal] -> ThrowsError LispVal
+singleArg f [x] = return (f x)
+singleArg _ args = throwError $ NumArgs "one" args
 
 
 negateLispVal :: LispVal -> LispVal
