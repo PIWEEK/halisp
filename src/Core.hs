@@ -122,7 +122,10 @@ primitives = [ -- Numeric
               ("string<=?", stringBinaryOp (<=)),
               ("string>=?", stringBinaryOp (>=)),
                -- Lists
-              ("list?", singleArg isList)]
+              ("list?", singleArg isList),
+              ("cons", cons),
+              ("car", car),
+              ("cdr", cdr)]
 
 
 -- TODO: more generic, works with any number!
@@ -195,7 +198,30 @@ isNumber (Number _) = Bool True
 isNumber _ = Bool False
 
 
+-- Lists
 isList :: LispVal -> LispVal
 isList (List _) = Bool True
 isList (DottedList _ _) = Bool True
 isList _ = Bool False
+
+
+car :: [LispVal] -> ThrowsError LispVal
+car [List (x:xs)] = return x
+car [DottedList (x:xs) _] = return x
+car [badArg] = throwError $ TypeMismatch "pair" badArg
+car badArgList = throwError $ NumArgs "one" badArgList
+
+
+cdr :: [LispVal] -> ThrowsError LispVal
+cdr [List (_:xs)] = return $ List xs
+cdr [DottedList [_] xs] = return xs
+cdr [DottedList (_:xs) x] = return $ DottedList xs x
+cdr [badArg] = throwError $ TypeMismatch "pair" badArg
+cdr badArgList = throwError $ NumArgs "one" badArgList
+
+cons :: [LispVal] -> ThrowsError LispVal
+cons [x, List []] = return $ List [x]
+cons [x, List xs] = return $ List $ x:xs
+cons [x, DottedList xs xstail] = return $ DottedList (x:xs) xstail
+cons [x1, x2] = return $ DottedList [x1] x2
+cons badArgList = throwError $ NumArgs "two" badArgList
