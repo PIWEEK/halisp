@@ -1,5 +1,7 @@
 module Core where
 
+import Control.Monad.Error
+
 
 -- |The different values that can appear in our Lisp programs.
 data LispVal = Atom String
@@ -8,6 +10,18 @@ data LispVal = Atom String
              | Number Integer
              | String String
              | Bool Bool
+
+
+type ParseError = String
+
+-- |The different errors that can occur in our Lisp programs.
+data LispError = NumArgs Integer [LispVal]
+               | TypeMismatch String LispVal
+               | Parser ParseError
+               | BadSpecialForm String LispVal
+               | NotFunction String String
+               | UnboundVar String String
+               | Default String
 
 
 instance Show LispVal where
@@ -23,6 +37,19 @@ instance Show LispVal where
 showLispValList :: [LispVal] -> String
 showLispValList = unwords . map show
 
+
+instance Show LispError where
+    show (NumArgs expected found) = "Expected " ++ show expected ++ " arguments; found " ++ show (length found)
+    show (TypeMismatch expected found) = "Invalid type: expected " ++ expected ++ ", found " ++ show found
+    show (Parser parseErr) = "Parse error at " ++ show parseErr
+    show (BadSpecialForm msg form) = msg ++ ": " ++ show form
+    show (NotFunction msg func) = msg ++ ": " ++ func
+    show (UnboundVar msg varname) = msg ++ ": " ++ varname
+
+
+instance Error LispError where
+    noMsg = Default "An error has occurred"
+    strMsg = Default
 
 
 -- |The 'eval' function reduces an arbitrarily complex 'LispVal' to a basic
