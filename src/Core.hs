@@ -1,3 +1,5 @@
+{-# LANGUAGE ExistentialQuantification #-}
+
 module Core where
 
 import Text.ParserCombinators.Parsec.Error (ParseError)
@@ -13,6 +15,8 @@ data LispVal = Atom String
              | String String
              | Bool Bool
 
+
+data Unpacker = forall a. Eq a => AnyUnpacker (LispVal -> ThrowsError a)
 
 -- |The different errors that can occur in our Lisp programs.
 data LispError = NumArgs String [LispVal]
@@ -55,6 +59,7 @@ instance Error LispError where
 -- |A type for including the possibility of a 'LispError' in a computation.
 type ThrowsError = Either LispError
 
+
 -- |A function for capturing errors and always returning a 'Right' value as a
 -- string.
 trapError action = catchError action (return . show)
@@ -92,7 +97,11 @@ apply func args = maybe (throwError $ NotFunction "Unrecognized primitive functi
 
 
 primitives :: [(String, [LispVal] -> ThrowsError LispVal)]
-primitives = [ -- Numeric
+primitives = [ -- Comparisons
+              ("eq?", eqv),
+              ("eqv?", eqv),
+              ("equal?", equal),
+               -- Numeric
               ("+", numericBinaryOp (+)),
               ("-", numericBinaryOp (-)),
               ("*", numericBinaryOp (*)),
@@ -134,6 +143,49 @@ primitives = [ -- Numeric
 numericBinaryOp :: (Integer -> Integer -> Integer) -> [LispVal] -> ThrowsError LispVal
 numericBinaryOp f singleVal@[_]= throwError $ NumArgs "two or more" singleVal
 numericBinaryOp f args = mapM unpackNumber args >>= return . Number . foldl1 f
+
+
+-- |The 'unpackEquals' functions takes a couple of 'LispVal's, a 'Unpacker'
+-- function and compares the unpacked values.
+unpackEquals :: LispVal -> LispVal -> Unpacker -> ThrowsError Bool
+unpackEquals x y (AnyUnpacker unpacker) =
+    do unpackedX <- unpacker x
+       unpackedY <- unpacker y
+       return $ unpackedX == unpackedY
+    `catchError` (const $ return False)
+
+
+-- |The 'eqv' function takes two arbitrary 'LispVal's and returns a Boolean
+-- 'LispVal' with the result of their comparison. Two values are 'eqv' if they
+-- print the same.
+eqv :: [LispVal] -> ThrowsError LispVal
+eqv [(Bool x), (Bool y)] = return $ Bool $ x == y
+eqv [(String x), (String y)] = return $ Bool $ x == y
+eqv [(Number x), (Number y)] = return $ Bool $ x == y
+eqv [(Atom x), (Atom y)] = return $ Bool $ x == y
+eqv [(DottedList xs x), (DottedList ys y)] = eqv [List $ xs ++ [x], List $ ys ++ [y]]
+
+eqv [(List xs), (List ys)] = return $ Bool $ (length xs == length ys) && (all eqvPair $ zip xs ys)
+    where eqvPair (x, y) = case eqv [x, y] of
+                            Left err -> False
+                            Right (Bool v) -> v
+
+eqv [_, _] = return $ Bool False
+eqv badArgList = throwError $ NumArgs "two" badArgList
+
+
+-- |The 'equal' function takes two arbitrary 'LispVal's and returns a Boolean
+-- 'LispVal' with the result of their comparison. Two values are 'equal' if
+-- they have the same type and value.
+equal :: [LispVal] -> ThrowsError LispVal
+equal [x, y] = do
+                let unpackers = [AnyUnpacker unpackNumber, AnyUnpacker unpackBool, AnyUnpacker unpackString]
+                -- TODO: doesn't interpret two equivalent values of different
+                -- types as true. E.g.: (equals? 1 "1")
+                primitiveEquals <- liftM or $ mapM (unpackEquals x y) unpackers
+                eqvEquals <- eqv [x, y]
+                return $ Bool $ (primitiveEquals || let (Bool x) = eqvEquals in x)
+equal badArgList = throwError $ NumArgs "two" badArgList
 
 
 -- TODO: more generic
