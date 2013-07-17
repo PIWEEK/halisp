@@ -27,6 +27,7 @@
 (define (foldl func l base) (if (null? l) base (foldl func (cdr l) (func base (car l)))))
 
 (define fold foldl)
+
 (define reduce fold)
 
 (define (unfold func init pred) (if (pred init) '() (cons init (unfold func (func init)  pred))))
