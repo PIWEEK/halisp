@@ -478,7 +478,7 @@ readAll [String filename] = liftM List $ load filename
 parseString :: Parser LispVal
 parseString = do
                 strDelim
-                str <- many $ noneOf escapeCharOptions <|> escapedChar
+                str <- many $ escapedChar <|> noneOf "\"\\"
                 strDelim
                 return $ String str
 
@@ -495,12 +495,12 @@ escapedChar = do
                     '\\' -> x
                     '"'  -> x
                     'n' -> '\n'
-                    't' -> '\t'
                     'r' -> '\r'
+                    't' -> '\t'
 
 
 -- |A string with the various characters used as escape codes.
-escapeCharOptions = "\\\"ntr"
+escapeCharOptions = "\\\"nrt"
 
 
 -- |The 'parseAtom' function parses a Atom 'LispVal'. The '#t' and '#f' atoms
