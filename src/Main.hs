@@ -36,11 +36,11 @@ until_ pred prompt action =
 
 
 runOne :: String -> IO ()
-runOne expr = nullEnv >>= flip evalAndPrint expr
+runOne expr = primitiveBindings >>= flip evalAndPrint expr
 
 
 runREPL :: IO ()
-runREPL = nullEnv >>= until_ (== "quit") (readPrompt "Halisp :: λ ") . evalAndPrint
+runREPL = primitiveBindings >>= until_ (== "quit") (readPrompt "Halisp :: λ ") . evalAndPrint
 
 
 main :: IO ()
