@@ -4,7 +4,11 @@ module Core where
 
 import Text.ParserCombinators.Parsec.Error (ParseError)
 
+import Control.Monad (liftM)
 import Control.Monad.Error
+import Control.Monad.IO.Class (liftIO)
+
+import Data.IORef
 
 
 -- |The different values that can appear in our Lisp programs.
@@ -15,8 +19,6 @@ data LispVal = Atom String
              | String String
              | Bool Bool
 
-
-data Unpacker = forall a. Eq a => AnyUnpacker (LispVal -> ThrowsError a)
 
 -- |The different errors that can occur in our Lisp programs.
 data LispError = NumArgs String [LispVal]
@@ -31,7 +33,7 @@ data LispError = NumArgs String [LispVal]
 instance Show LispVal where
     show (Atom name) = name
     show (List xs) = "(" ++ showLispValList xs ++ ")"
-    show (DottedList head tail) = "(" ++ showLispValList head ++ " . " ++ show tail ++ ")"
+    show (DottedList head' tail) = "(" ++ showLispValList head' ++ " . " ++ show tail ++ ")"
     show (Number n) = show n
     show (String s) = "\"" ++ s ++ "\""
     show (Bool True) = "#t"
@@ -59,6 +61,70 @@ instance Error LispError where
 -- |A type for including the possibility of a 'LispError' in a computation.
 type ThrowsError = Either LispError
 
+-- |A type for including the possibility of a 'LispError' in a effectful
+-- computation.
+type IOThrowsError = ErrorT LispError IO
+
+
+data Unpacker = forall a. Eq a => AnyUnpacker (LispVal -> ThrowsError a)
+
+
+-- Environment
+
+
+type Env = IORef [(String, IORef LispVal)]
+
+
+nullEnv :: IO Env
+nullEnv = newIORef []
+
+
+isBound :: Env -> String -> IO Bool
+isBound envRef var = readIORef envRef >>= return . maybe False (const True) . lookup var
+
+
+getVar :: Env -> String -> IOThrowsError LispVal
+getVar envRef var = do env <- liftIO $ readIORef envRef
+                       maybe (throwError $ UnboundVar "Getting an unbound variable " var)
+                             (liftIO . readIORef)
+                             (lookup var env)
+
+
+setVar :: Env -> String -> LispVal -> IOThrowsError LispVal
+setVar envRef var value = do env <- liftIO $ readIORef envRef
+                             maybe (throwError $ UnboundVar "Setting an unbound variable " var)
+                                   (liftIO . (flip writeIORef value))
+                                   (lookup var env)
+                             return value
+
+
+defineVar :: Env -> String -> LispVal -> IOThrowsError LispVal
+defineVar envRef var value = do alreadyDefined <- liftIO $ isBound envRef var
+                                if alreadyDefined
+                                    then setVar envRef var value >> return value
+                                    else liftIO $ do
+                                        valueRef <- newIORef value
+                                        env <- readIORef envRef
+                                        writeIORef envRef ((var, valueRef) : env)
+                                        return value
+
+
+-- |Given an 'Env' and a list of '(String, LispVal)', create a new 'Env' with
+-- the bindings specified in the list overriding the environment.
+bindVars :: Env -> [(String, LispVal)] -> IO Env
+bindVars envRef bindings = readIORef envRef >>= extendEnv >>= newIORef
+    where extendEnv env = liftM (++ env) $ mapM addBinding bindings
+          addBinding (var, value) = do valueRef <- newIORef value
+                                       return (var, valueRef)
+
+
+liftThrows :: ThrowsError a -> IOThrowsError a
+liftThrows (Left err) = throwError err
+liftThrows (Right val) = return val
+
+runIOThrows :: IOThrowsError String -> IO String
+runIOThrows action = runErrorT (trapError action) >>= return . extractValue
+
 
 -- |A function for capturing errors and always returning a 'Right' value as a
 -- string.
@@ -73,20 +139,24 @@ extractValue (Right val) = val
 
 -- |The 'eval' function reduces an arbitrarily complex 'LispVal' to a basic
 -- 'LispVal'.
-eval :: LispVal -> ThrowsError LispVal
-eval val@(String _) = return val
-eval val@(Number _) = return val
-eval val@(Bool _) = return val
-eval (List [Atom "quote", val]) = return val
-eval (List [Atom "if", pred, conseq, alt]) =
-    do result <- eval pred
+eval :: Env -> LispVal -> IOThrowsError LispVal
+eval _ val@(String _) = return val
+eval _ val@(Number _) = return val
+eval _ val@(Bool _) = return val
+eval env (Atom id) = getVar env id
+eval env (List [Atom "quote", val]) = return val
+eval env (List [Atom "if", pred, conseq, alt]) =
+    do result <- eval env pred
        case result of
-         Bool False -> eval alt
-         Bool True -> eval conseq
+         Bool False -> eval env alt
+         Bool True -> eval env conseq
          otherwise -> throwError $ TypeMismatch "Boolean" result
 
-eval (List (Atom func: args)) = mapM eval args >>= apply func
-eval badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
+eval env (List [Atom "set!", Atom var, form]) = eval env form >>= setVar env var
+eval env (List [Atom "define", Atom var, form]) = eval env form >>= defineVar env var
+
+eval env (List (Atom func: args)) = mapM (eval env) args >>= liftThrows . apply func
+eval _ badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
 
 
 -- |The 'apply' function takes a string representing a function, a list of
@@ -186,7 +256,7 @@ equal [x, y] = do
                 -- types as true. E.g.: (equals? 1 "1")
                 primitiveEquals <- liftM or $ mapM (unpackEquals x y) unpackers
                 eqvEquals <- eqv [x, y]
-                return $ Bool $ (primitiveEquals || let (Bool x) = eqvEquals in x)
+                return $ Bool (primitiveEquals || let (Bool x) = eqvEquals in x)
 equal badArgList = throwError $ NumArgs "two" badArgList
 
 
