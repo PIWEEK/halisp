@@ -3,7 +3,6 @@ import System.Environment (getArgs)
 
 import Control.Monad (liftM)
 
-import Parser (readExpr)
 import Core
 
 -- Helper functions
@@ -35,8 +34,10 @@ until_ pred prompt action =
         else action result >> until_ pred prompt action
 
 
-runOne :: String -> IO ()
-runOne expr = primitiveBindings >>= flip evalAndPrint expr
+runOne :: [String] -> IO ()
+runOne args = do
+    env <- primitiveBindings >>= flip bindVars [("args", List $ map String $ drop 1 args)]
+    (runIOThrows $ liftM show $ eval env (List [Atom "load", String $ head args])) >>= hPutStrLn stderr
 
 
 runREPL :: IO ()
@@ -46,7 +47,4 @@ runREPL = primitiveBindings >>= until_ (== "quit") (readPrompt "Halisp :: λ ") 
 main :: IO ()
 main = do
         args <- getArgs
-        case length args of
-            0 -> runREPL
-            1 -> runOne $ head args
-            otherwise -> print "Incorrect number of arguments, must be 0 or 1"
+        if null args then runREPL else runOne $ args

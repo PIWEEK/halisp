@@ -2,11 +2,13 @@
 
 module Core where
 
-import Text.ParserCombinators.Parsec.Error (ParseError)
-
+import Control.Monad (liftM)
 import Control.Monad.Error
-
 import Data.IORef
+import System.IO
+
+import Text.ParserCombinators.Parsec hiding (spaces)
+import Text.ParserCombinators.Parsec.Error (ParseError)
 
 
 -- |The different values that can appear in our Lisp programs.
@@ -21,6 +23,8 @@ data LispVal = Atom String
                       varargs :: (Maybe String),
                       body :: [LispVal],
                       closure :: Env }
+             | IOFunc ([LispVal] -> IOThrowsError LispVal)
+             | Port Handle
 
 
 -- |The different errors that can occur in our Lisp programs.
@@ -47,6 +51,8 @@ instance Show LispVal where
             (case varargs of
                 Nothing -> ""
                 Just arg -> " . " ++ arg) ++ ") ...)"
+    show (IOFunc _) = "<IO primitive>"
+    show (Port _) = "<IO port>"
 
 
 showLispValList :: [LispVal] -> String
@@ -153,6 +159,10 @@ eval :: Env -> LispVal -> IOThrowsError LispVal
 eval _ val@(String _) = return val
 eval _ val@(Number _) = return val
 eval _ val@(Bool _) = return val
+
+eval env (List [Atom "load", String filename]) =
+    load filename >>= liftM last . mapM (eval env)
+
 eval env (Atom name) = getVar env name
 eval env (List [Atom "quote", val]) = return val
 eval env (List [Atom "if", pred, conseq, alt]) =
@@ -200,6 +210,7 @@ eval _ badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
 -- arguments.
 apply :: LispVal -> [LispVal] -> IOThrowsError LispVal
 apply (PrimitiveFunc func) args = liftThrows $ func args
+apply (IOFunc func) args = func args
 apply (Func params varargs body closure) args =
     if num params /= num args && varargs == Nothing
         then throwError $ NumArgs (show $ length params) args
@@ -253,9 +264,22 @@ primitives = [ -- Comparisons
               ("cdr", cdr)]
 
 
+ioPrimitives :: [(String, [LispVal] -> IOThrowsError LispVal)]
+ioPrimitives = [("apply", applyProc),
+                ("open-input-file", makePort ReadMode),
+                ("open-output-file", makePort WriteMode),
+                ("close-input-file", closePort),
+                ("close-output-file", closePort),
+                ("read", readProc),
+                ("write", writeProc),
+                ("read-contents", readContents),
+                ("read-all", readAll)]
+
+
 primitiveBindings :: IO Env
-primitiveBindings = nullEnv >>= (flip bindVars $ map makePrimitiveFunc primitives)
-    where makePrimitiveFunc (var, func) = (var, PrimitiveFunc func)
+primitiveBindings = nullEnv >>= (flip bindVars $ map (makeFunc PrimitiveFunc) primitives
+                                             ++  map (makeFunc IOFunc) ioPrimitives)
+    where makeFunc constructor (var, func) = (var, constructor func)
 
 
 -- TODO: more generic, works with any number!
@@ -408,3 +432,165 @@ makeFunc varargs env params body = return $ Func (map show params) varargs body 
 makeNormalFunc = makeFunc Nothing
 
 makeVarargs = makeFunc . Just . show
+
+-- IO Functions
+
+
+applyProc :: [LispVal] -> IOThrowsError LispVal
+applyProc [func, List args] = apply func args
+applyProc (func: args) = apply func args
+
+
+makePort :: IOMode -> [LispVal] -> IOThrowsError LispVal
+makePort mode [String filename] = liftM Port $ liftIO $ openFile filename mode
+
+
+closePort :: [LispVal] -> IOThrowsError LispVal
+closePort [Port port] = liftIO $ hClose port >> (return $ Bool True)
+closePort _ = return $ Bool False
+
+
+readProc :: [LispVal] -> IOThrowsError LispVal
+readProc [] = readProc [Port stdin]
+readProc [Port port] = (liftIO $ hGetLine port) >>= liftThrows . readExpr
+
+
+writeProc :: [LispVal] -> IOThrowsError LispVal
+writeProc [obj] = writeProc [obj, Port stdout]
+writeProc [obj, Port port] = (liftIO $ hPrint port obj) >> (return $ Bool True)
+
+
+readContents :: [LispVal] -> IOThrowsError LispVal
+readContents [String filename] = liftM String $ liftIO $ readFile filename
+
+
+load :: String -> IOThrowsError [LispVal]
+load filename = (liftIO $ readFile filename) >>= liftThrows . readExprList
+
+
+readAll :: [LispVal] -> IOThrowsError LispVal
+readAll [String filename] = liftM List $ load filename
+
+
+-- PARSER
+
+-- |The 'parseString' parses a String 'LispVal'.
+parseString :: Parser LispVal
+parseString = do
+                strDelim
+                str <- many $ noneOf escapeCharOptions <|> escapedChar
+                strDelim
+                return $ String str
+
+
+strDelim = char '"'
+
+
+-- |A parser that is able to process escaped characters for a string, trimming
+-- the backslash used to escape it.
+escapedChar = do
+                char '\\'
+                x <- oneOf escapeCharOptions
+                return $ case x of
+                    '\\' -> x
+                    '"'  -> x
+                    'n' -> '\n'
+                    't' -> '\t'
+                    'r' -> '\r'
+
+
+-- |A string with the various characters used as escape codes.
+escapeCharOptions = "\\\"ntr"
+
+
+-- |The 'parseAtom' function parses a Atom 'LispVal'. The '#t' and '#f' atoms
+-- are interpreted as the true and false boolean values. An atom can't start
+-- with a number, but it may contain them.
+parseAtom :: Parser LispVal
+parseAtom = do
+              first <- letter <|> symbol -- an atom can't start with a number
+              rest <- many (letter <|> digit <|> symbol)
+              let atom = first:rest
+              return $ case atom of
+                        "#t" -> Bool True
+                        "#f" -> Bool False
+                        _ -> Atom atom
+
+
+-- |The 'parseNumber' function parses a Number 'LispVal'.
+parseNumber :: Parser LispVal
+parseNumber = liftM (Number . read) $ many1 digit
+
+
+-- Exercise 1
+parseNumber' :: Parser LispVal
+parseNumber' = do
+                 ds <- many1 digit
+                 return $ Number (read ds)
+
+parseNumber'' :: Parser LispVal
+parseNumber'' = many1 digit >>= return . toNumber
+    where toNumber  = Number . read
+
+
+-- |The 'parseExpr' function parses either a string, atom or number.
+parseExpr :: Parser LispVal
+parseExpr = parseAtom
+        <|> parseString
+        <|> parseNumber
+        <|> parseQuoted
+        <|> parseParens
+
+
+parseParens :: Parser LispVal
+parseParens = do
+                char '('
+                x <- try parseList <|> parseDottedList
+                char ')'
+                return x
+
+
+-- |The 'parseList' function parses a list of expressions.
+parseList :: Parser LispVal
+parseList = parseExpr `sepBy` spaces >>= return . List
+
+
+-- |The 'parseList' function parses a dotted list of expressions.
+parseDottedList :: Parser LispVal
+parseDottedList = do
+                    first <- parseExpr `endBy1` spaces
+                    tail <- char '.' >> spaces >> parseExpr
+                    return $ DottedList first tail
+
+
+-- |The 'parseQuoted' function parses a quoted expression.
+parseQuoted :: Parser LispVal
+parseQuoted = do
+                char '\''
+                x <- parseExpr
+                return $ List [Atom "quote", x]
+
+
+-- |The 'symbol' function recognizes a symbol allowed in Scheme identifiers.
+symbol :: Parser Char
+symbol = oneOf "!#$%&|*+-/:<=>?@^_~"
+
+
+-- |The 'spaces' functions parses and ignores one or more space characters. The
+-- 'spaces' function that comes with Parsec parses zero or more.
+spaces :: Parser ()
+spaces = skipMany1 space
+
+
+-- |The 'readExpr' function takes an input text and returns a 'LispVal'
+-- representation of the input. If it encounters an error, it will return a
+-- string 'LispVal' with an error message.
+readExpr = readOrThrow parseExpr
+
+readExprList = readOrThrow (endBy parseExpr spaces)
+
+
+readOrThrow :: Parser a -> String -> ThrowsError a
+readOrThrow parser input = case parse parser "lisp" input of
+    Left err -> throwError $ Parser err
+    Right val -> return val
