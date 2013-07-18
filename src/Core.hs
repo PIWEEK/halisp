@@ -232,6 +232,7 @@ primitives = [ -- Comparisons
               ("+", numericBinaryOp (+)),
               ("-", numericBinaryOp (-)),
               ("*", numericBinaryOp (*)),
+              ("**", numericBinaryOp (^)),
               ("/", numericBinaryOp div),
               ("mod", numericBinaryOp mod),
               ("quotient", numericBinaryOp quot),
@@ -465,8 +466,11 @@ readContents [String filename] = liftM String $ liftIO $ readFile filename
 
 
 load :: String -> IOThrowsError [LispVal]
-load filename = (liftIO $ readFile filename) >>= liftThrows . readExprList
-
+load filename = (liftIO $ readFile fname) >>= liftThrows . readExprList
+    where fname = if langSuffix `L.isSuffixOf` filename
+                    then filename
+                    else filename ++ langSuffix
+          langSuffix = ".hal"
 
 readAll :: [LispVal] -> IOThrowsError LispVal
 readAll [String filename] = liftM List $ load filename
