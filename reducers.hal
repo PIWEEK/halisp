@@ -1,0 +1,5 @@
+(load "generators")
+
+(reduce + xs 0)
+
+(reverse xs)

@@ -2,13 +2,12 @@
 
 module Core where
 
-import Control.Monad (liftM)
 import Control.Monad.Error
 import Data.IORef
+import Data.List as L
 import System.IO
 
 import Text.ParserCombinators.Parsec hiding (spaces)
-import Text.ParserCombinators.Parsec.Error (ParseError)
 
 
 -- |The different values that can appear in our Lisp programs.
@@ -39,24 +38,24 @@ data LispError = NumArgs String [LispVal]
 
 instance Show LispVal where
     show (Atom name) = name
-    show (List xs) = "(" ++ showLispValList xs ++ ")"
-    show (DottedList head' tail') = "(" ++ showLispValList head' ++ " . " ++ show tail' ++ ")"
+    show (List xs) = "(" ++ showList' xs ++ ")"
+    show (DottedList head' tail') = "(" ++ showList' head' ++ " . " ++ show tail' ++ ")"
     show (Number n) = show n
     show (String s) = "\"" ++ s ++ "\""
     show (Bool True) = "#t"
     show (Bool False) = "#f"
     show (PrimitiveFunc _) = "<primitive>"
     show (Func { params = args, varargs = varargs, body = body, closure = closure }) =
-        "(lambda (" ++ unwords (map show args) ++
+        "(lambda (" ++ showList' args ++
             (case varargs of
                 Nothing -> ""
-                Just arg -> " . " ++ arg) ++ ") ...)"
+                Just arg -> " . " ++ arg) ++ ") " ++ showList' body ++ ")"
     show (IOFunc _) = "<IO primitive>"
     show (Port _) = "<IO port>"
 
 
-showLispValList :: [LispVal] -> String
-showLispValList = unwords . map show
+showList' :: Show a => [a] -> String
+showList' = unwords . map show
 
 
 instance Show LispError where
@@ -144,6 +143,7 @@ runIOThrows action = runErrorT (trapError action) >>= return . extractValue
 
 -- |A function for capturing errors and always returning a 'Right' value as a
 -- string.
+trapError :: (Show e, MonadError e m) => m String -> m String
 trapError action = catchError action (return . show)
 
 

@@ -32,17 +32,17 @@
 
 (define (unfold func init pred) (if (pred init) '() (cons init (unfold func (func init)  pred))))
 
-(define (sum . xs) (reduce + xs 0))
+(define (sum xs) (reduce + xs 0))
 
-(define (product . xs) (reduce * xs 1))
+(define (product xs) (reduce * xs 1))
 
-(define (and . xs) (reduce && xs #t))
+(define (and xs) (reduce && xs #t))
 
-(define (or . xs) (reduce || xs #f))
+(define (or xs) (reduce || xs #f))
 
-(define (max x . xs) (foldr (lambda (old new) (if (> old new) old new)) xs x))
+(define (max x xs) (foldr (lambda (old new) (if (> old new) old new)) xs x))
 
-(define (min x . xs) (foldr (lambda (old new) (if (< old new) old new)) xs x))
+(define (min x xs) (foldr (lambda (old new) (if (< old new) old new)) xs x))
 
 (define (map f xs) (foldr (lambda (x acc) (cons (f x) acc)) xs '()))
 
