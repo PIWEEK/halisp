@@ -47,7 +47,7 @@ $ ./dist/build/halisp/halisp
 
 TODO: more numeric types: rational,float
 
-### Strings
+### String
 
 ```scheme
 (define piweek-winner "Halisp")
