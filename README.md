@@ -1,6 +1,26 @@
-# halisp
+                 | |__   __ _| (_)___ _ __            _| |
+                 | '_ \ / _` | | / __| '_ \         /'_  |
+                 | | | | (_| | | \__ \ |_) |       | | \ |
+                 |_| |_|\__,_|_|_|___/ .__/        |_| |_|
+                                     |_|
 
 A toy Scheme implementation written in Haskell. Still incomplete.
+
+```sh
+# install GHC before anything else
+
+$ cd halisp
+$ cabal-dev-install
+
+# run a program
+
+$ ./dist/build/halisp/halisp generators
+$ ./dist/build/halisp/halisp reducers.hal
+
+# open a REPL
+
+$ ./dist/build/halisp/halisp
+```
 
 ## Data types
 
