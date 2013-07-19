@@ -1,10 +1,12 @@
-                 | |__   __ _| (_)___ _ __            _| |
-                 | '_ \ / _` | | / __| '_ \         /'_  |
-                 | | | | (_| | | \__ \ |_) |       | | \ |
-                 |_| |_|\__,_|_|_|___/ .__/        |_| |_|
-                                     |_|
+    | |__   __ _| (_)___ _ __            _| |
+    | '_ \ / _` | | / __| '_ \         /'_  |
+    | | | | (_| | | \__ \ |_) |       | | \ |
+    |_| |_|\__,_|_|_|___/ .__/        |_| |_|
+                        |_|
 
 A toy Scheme implementation written in Haskell. Still incomplete.
+
+# Install and run
 
 ```sh
 # install GHC before anything else
