@@ -46,11 +46,11 @@
 
 (define reduce fold)
 
-(define (unfold func init pred)
+(define (unfold func pred init)
     (if (pred init)
         '()
         (cons init
-            (unfold func (func init)  pred))))
+            (unfold func pred (func init)))))
 
 (define (sum xs)
     (reduce + xs 0))
@@ -58,16 +58,16 @@
 (define (product xs)
     (reduce * xs 1))
 
-(define (and xs)
+(define (and . xs)
     (reduce && xs #t))
 
-(define (or xs)
+(define (or . xs)
     (reduce || xs #f))
 
-(define (max x xs)
+(define (max x . xs)
     (foldr (lambda (old new) (if (> old new) old new)) xs x))
 
-(define (min x xs)
+(define (min x . xs)
     (foldr (lambda (old new) (if (< old new) old new)) xs x))
 
 (define (map f xs)
@@ -93,6 +93,28 @@
                 (f (car xs) (car ys))
                 (zip-with f (cdr xs) (cdr ys)))))
 
-(define (zip xs ys) (zip-with (lambda (x y) (list x y)) xs ys))
+(define (zip xs ys)
+    (zip-with (lambda (x y) (list x y)) xs ys))
+
+(define (++ xs ys)
+    (if (null? ys)
+        xs
+        (++ (append (car ys) xs) (cdr ys))))
+
+(define (concat xss)
+    (foldr ++ xss '()))
+
+(define (map-cat f xs)
+    (concat (map f xs)))
+
+(define bind map-cat)
+(define >>= bind)
+
+(define <$> map)
+
+(define (ap fs xs)
+    (map-cat (lambda (f) (map f xs)) fs))
+
+(define <*> ap)
 
 '()
