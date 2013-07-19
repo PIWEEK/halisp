@@ -4,10 +4,14 @@ A toy Scheme implementation written in Haskell. Still incomplete.
 
 ## Data types
 
+
 ### Number
 
 ```scheme
 (define answer 42)
+
+(number? answer) ; #t
+(number? '()) ; #f
 
 (+ 2 3) ; 5
 
@@ -21,9 +25,24 @@ A toy Scheme implementation written in Haskell. Still incomplete.
 
 TODO: more numeric types: rational,float
 
+### Strings
+
+```scheme
+(define piweek-winner "Halisp")
+
+(string? piweek-winner) ; #t
+(string? 1) ; #f
+```
+
+TODO: char type
+
 ### Boolean
 
 ```scheme
+(boolean? #t) ; #t
+(boolean? #f) ; #t
+(boolean? 1) ; #f
+
 (define halisp-won-the-piweek #t)
 
 (&& #t #f) ; #f
@@ -36,6 +55,10 @@ TODO: more numeric types: rational,float
 
 ```scheme
 ; notation
+
+(list? '(1 2 3)) ; #t
+(list? '(1 2 . 3) ; #t
+(list? 3) ; #f
 
 (define xs '(0 1 2 3 4)) ; (0 1 2 3 4)
 (define ys (list 9 8 7 6 5)) ; (9 8 7 6 5)
@@ -89,6 +112,26 @@ TODO: more numeric types: rational,float
 (bind dupe '(1 2 3)) ; (1 1 2 2 3 3)
 ```
 
+TODO: sets and maps a la Clojure
+
+## Control flow and comparison
+
+```scheme
+; numbers
+
+(if (> 2 1)
+    "2 is greater than 1"
+    "Impossible has happened!")
+
+; strings
+
+(if (string<? "Clojure" "Python")
+    "Clojure is not as popular as Python yet"
+    "But I have high hopes for it")
+```
+
+TODO: progn, case, cond
+
 ## Functions
 
 ```scheme
@@ -131,6 +174,20 @@ TODO: eval!
 (my-counter 4) ; 5
 ```
 
+## Ideas
+
+- Polymorphic
+  * Primitives
+  * User-defined functions
+- More data structures
+- Bigger standard library
+- Macros
+  * Let bindings
+
 ## License
 
 GPLv3
+
+## Author
+
+Alejandro Gómez
