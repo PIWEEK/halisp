@@ -1,9 +1,11 @@
-(load "stdlib")
+(load "prelude")
 
-(define (add x) (lambda (y) (+ x y)))
+(define (add x)
+    (lambda (y) (+ x y)))
 
 (define (square x) (* x x))
 
-(define (greater-than x) (lambda (y) (> y x)))
+(define (greater-than x)
+    (lambda (y) (> y x)))
 
 (define xs (unfold (add 2) (greater-than (** 2 10)) 1))

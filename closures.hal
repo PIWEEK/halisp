@@ -1,4 +1,4 @@
-(load "stdlib")
+(load "prelude")
 
 (define c (counter 0))
 
