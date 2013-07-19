@@ -36,15 +36,18 @@ TODO: more numeric types: rational,float
 
 ```scheme
 ; notation
-(define xs '(0 1 2 3 4))
-(define ys (list 9 8 7 6 5))
+
+(define xs '(0 1 2 3 4)) ; (0 1 2 3 4)
+(define ys (list 9 8 7 6 5)) ; (9 8 7 6 5)
 (define zs (cons 1 (cons 2 (cons 3 '())))) ; (1 2 3)
 
 ; first and rest AKA car and cdr
+
 (car '(1 2 3)) ; 1
 (cdr '(1 2 3)) ; (2 3)
 
 ; foldl AKA reduce
+
 (reduce + '(1 2 3 4 5) 0) ; 15
 
 ; mapping and filtering
@@ -54,6 +57,7 @@ TODO: more numeric types: rational,float
 (filter odd? '(1 2 3)) ; (1 3)
 
 ; unfold
+
 (define (greater-than x) (lambda (y) (> y x)))
 
 (unfold (curry + 1) (greater-than 10) 0) ; (0 1 2 3 4 5 6 7 8 9 10)
@@ -64,11 +68,13 @@ TODO: more numeric types: rational,float
 (zip-with + '(1 2 3) '(4 5 6)) ; (5 7 9)
 
 ; other useful functions
+
 (reverse '(1 2 3)) ; (3 2 1)
 
 (length '(1 2 3)) ; 3
 
 ; ++ and concat
+
 (++ '(1 2 3) '(4 5)) ; (1 2 3 4 5)
 (concat '((1 2) (3) (4 5))) ; (1 2 3 4 5)
 
@@ -87,9 +93,11 @@ TODO: more numeric types: rational,float
 
 ```scheme
 ; named
+
 (define (add1 x) (+ x 1))
 
 ; anonymous
+
 (lambda (x) (+ x 1))
 ```
 
