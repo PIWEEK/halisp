@@ -12,7 +12,7 @@ A toy Scheme implementation written in Haskell. Still incomplete.
 # install GHC before anything else
 
 $ cd halisp
-$ cabal-dev-install
+$ cabal-dev install
 
 # run a program
 
